@@ -1116,7 +1116,9 @@ static void commander_set_home_position(orb_advert_t &homePub, home_position_s &
 
 	home.yaw = attitude.yaw;
 
-	PX4_INFO("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	//PX4_INFO("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	warnx("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
 
 	/* announce new home position */
 	if (homePub != nullptr) {
@@ -1816,6 +1818,7 @@ int commander_thread_main(int argc, char *argv[])
 			orb_copy(ORB_ID(safety), safety_sub, &safety);
 
 			/* disarm if safety is now on and still armed */
+			/* 当armed.aremd == 1 时，按下安全开关(safety.safety_off = false)，可以上锁（disaremd），无论此时Throttle是否 < 0.1,*/
 			if (status.hil_state == vehicle_status_s::HIL_STATE_OFF && safety.safety_switch_available && !safety.safety_off && armed.armed) {
 				arming_state_t new_arming_state = (status.arming_state == vehicle_status_s::ARMING_STATE_ARMED ? vehicle_status_s::ARMING_STATE_STANDBY :
 								   vehicle_status_s::ARMING_STATE_STANDBY_ERROR);
@@ -1835,13 +1838,17 @@ int commander_thread_main(int argc, char *argv[])
 			}
 
 			//Notify the user if the status of the safety switch changes
+			/* safety.safety_off = ture,表示已通过安全开关解锁，初始化状态safety_safety_off = false,按下安全开关，safety.safety_off = ture;*/
 			if (safety.safety_switch_available && previous_safety_off != safety.safety_off) {
 
 				if (safety.safety_off) {
 					set_tune(TONE_NOTIFY_POSITIVE_TUNE);
-
+					mavlink_log_info(&mavlink_log_pub, "Pre-ARMED by safety switch");
 				} else {
 					tune_neutral(true);
+					if (!arming_state_changed){
+						mavlink_log_info(&mavlink_log_pub, "DISARMED by safety switch (After disarmed by RC)");
+					}
 				}
 
 				status_changed = true;
@@ -2322,6 +2329,7 @@ int commander_thread_main(int argc, char *argv[])
 		}
 
 		/* RC input check */
+		/* check RC single ,根据遥控器信号进行解锁上锁，进行main_switch切换*/
 		if (!status_flags.rc_input_blocked && sp_man.timestamp != 0 &&
 		    (hrt_absolute_time() < sp_man.timestamp + (uint64_t)(rc_loss_timeout * 1e6f))) {
 			/* handle the case where RC signal was regained */
@@ -2450,8 +2458,10 @@ int commander_thread_main(int argc, char *argv[])
 
 			/* evaluate the main state machine according to mode switches */
 			bool first_rc_eval = (_last_sp_man.timestamp == 0) && (sp_man.timestamp > 0);
+			/**********根据RC的mode switch 信号，进行main state 切换 ************/
 			transition_result_t main_res = set_main_state_rc(&status);
 
+			/* **************************************************************** */
 			/* play tune on mode change only if armed, blink LED always */
 			if (main_res == TRANSITION_CHANGED || first_rc_eval) {
 				tune_positive(armed.armed);
@@ -2689,6 +2699,7 @@ int commander_thread_main(int argc, char *argv[])
 		}
 
 		/* now set navigation state according to failsafe and main state */
+		/* 根据failsafe(失控保护)和main state来设定navigation state */
 		bool nav_state_changed = set_nav_state(&status,
 						       &internal_state,
 						       (datalink_loss_enabled > 0),
@@ -2719,7 +2730,9 @@ int commander_thread_main(int argc, char *argv[])
 
 		/* publish states (armed, control mode, vehicle status) at least with 5 Hz */
 		if (counter % (200000 / COMMANDER_MONITORING_INTERVAL) == 0 || status_changed) {
+			/* 根据nav_status设置control_mode */
 			set_control_mode();
+			/*********************************/
 			control_mode.timestamp = now;
 			orb_publish(ORB_ID(vehicle_control_mode), control_mode_pub, &control_mode);
 
