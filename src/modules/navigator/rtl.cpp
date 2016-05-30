@@ -166,6 +166,8 @@ RTL::set_rtl_item()
 		mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: climb to %d m (%d m above home)",
 			(int)(climb_alt),
 			(int)(climb_alt - _navigator->get_home_position()->alt));
+		/*mavlink_log_info(_navigator->get_mavlink_log_pub(),"acceptance_radius: %d m",
+			(int)(_mission_item.acceptance_radius ));*/
 		break;
 	}
 
@@ -208,7 +210,9 @@ RTL::set_rtl_item()
 		mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: return at %d m (%d m above home)",
 			(int)(_mission_item.altitude),
 			(int)(_mission_item.altitude - _navigator->get_home_position()->alt));
-
+		/*mavlink_log_info(_navigator->get_mavlink_log_pub(),"acceptance_radius: %d m",
+			(int)(_mission_item.acceptance_radius ));
+*/
 		_rtl_start_lock = true;
 		break;
 	}

@@ -1116,9 +1116,9 @@ static void commander_set_home_position(orb_advert_t &homePub, home_position_s &
 
 	home.yaw = attitude.yaw;
 
-	//PX4_INFO("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
-	mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
-	warnx("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	PX4_INFO("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	//mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	//warnx("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
 
 	/* announce new home position */
 	if (homePub != nullptr) {
@@ -1131,6 +1131,7 @@ static void commander_set_home_position(orb_advert_t &homePub, home_position_s &
 	//Play tune first time we initialize HOME
 	if (!status_flags.condition_home_position_valid) {
 		tune_home_set(true);
+		mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
 	}
 
 	/* mark home position as set */
@@ -2394,7 +2395,7 @@ int commander_thread_main(int argc, char *argv[])
 					 * for being in manual mode only applies to manual arming actions.
 					 * the system can be armed in auto if armed via the GCS.
 					 */
-
+					/* POSCTL 和 ALTCTL都可以解锁*/
 					if ((internal_state.main_state != commander_state_s::MAIN_STATE_MANUAL)
 						&& (internal_state.main_state != commander_state_s::MAIN_STATE_ACRO)
 						&& (internal_state.main_state != commander_state_s::MAIN_STATE_STAB)
@@ -2458,7 +2459,7 @@ int commander_thread_main(int argc, char *argv[])
 
 			/* evaluate the main state machine according to mode switches */
 			bool first_rc_eval = (_last_sp_man.timestamp == 0) && (sp_man.timestamp > 0);
-			/**********根据RC的mode switch 信号，进行main state 切换 ************/
+			/**********根据RC的mode switch 信号，进行main state 切换,改变的实际上时intetanl.state ************/
 			transition_result_t main_res = set_main_state_rc(&status);
 
 			/* **************************************************************** */
@@ -2699,7 +2700,7 @@ int commander_thread_main(int argc, char *argv[])
 		}
 
 		/* now set navigation state according to failsafe and main state */
-		/* 根据failsafe(失控保护)和main state来设定navigation state */
+		/* 根据failsafe(失控保护)和main state(internal_state)来设定navigation state(status) */
 		bool nav_state_changed = set_nav_state(&status,
 						       &internal_state,
 						       (datalink_loss_enabled > 0),
