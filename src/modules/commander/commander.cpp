@@ -1116,8 +1116,8 @@ static void commander_set_home_position(orb_advert_t &homePub, home_position_s &
 
 	home.yaw = attitude.yaw;
 
-	PX4_INFO("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
-	//mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	//PX4_INFO("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+	mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
 	//warnx("home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
 
 	/* announce new home position */
@@ -1131,7 +1131,7 @@ static void commander_set_home_position(orb_advert_t &homePub, home_position_s &
 	//Play tune first time we initialize HOME
 	if (!status_flags.condition_home_position_valid) {
 		tune_home_set(true);
-		mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
+		//mavlink_log_info(&mavlink_log_pub, "home: %.7f, %.7f, %.2f", home.lat, home.lon, (double)home.alt);
 	}
 
 	/* mark home position as set */
@@ -1221,25 +1221,25 @@ int commander_thread_main(int argc, char *argv[])
 	// arming_states_str[vehicle_status_s::ARMING_STATE_REBOOT]			= "REBOOT";
 	// arming_states_str[vehicle_status_s::ARMING_STATE_IN_AIR_RESTORE]		= "IN_AIR_RESTORE";
 
-	// const char *nav_states_str[vehicle_status_s::NAVIGATION_STATE_MAX];
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_MANUAL]			= "MANUAL";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_STAB]				= "STAB";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_RATTITUDE]		= "RATTITUDE";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_ALTCTL]			= "ALTCTL";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_POSCTL]			= "POSCTL";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION]		= "AUTO_MISSION";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER]		= "AUTO_LOITER";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_RTL]		= "AUTO_RTL";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF]		= "AUTO_TAKEOFF";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_RCRECOVER]		= "AUTO_RCRECOVER";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_RTGS]		= "AUTO_RTGS";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL]	= "AUTO_LANDENGFAIL";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL]	= "AUTO_LANDGPSFAIL";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_ACRO]			= "ACRO";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LAND]			= "LAND";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_DESCEND]		= "DESCEND";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_TERMINATION]		= "TERMINATION";
-	// nav_states_str[vehicle_status_s::NAVIGATION_STATE_OFFBOARD]		= "OFFBOARD";
+	const char *nav_states_str[vehicle_status_s::NAVIGATION_STATE_MAX];
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_MANUAL]			= "MANUAL";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_STAB]			= "STAB";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_RATTITUDE]		= "RATTITUDE";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_ALTCTL]			= "ALTCTL";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_POSCTL]			= "POSCTL";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION]		= "AUTO_MISSION";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER]		= "AUTO_LOITER";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_RTL]		= "AUTO_RTL";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF]		= "AUTO_TAKEOFF";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_RCRECOVER]	= "AUTO_RCRECOVER";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_RTGS]		= "AUTO_RTGS";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LANDENGFAIL]	= "AUTO_LANDENGFAIL";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LANDGPSFAIL]	= "AUTO_LANDGPSFAIL";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_ACRO]			= "ACRO";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_AUTO_LAND]		= "LAND";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_DESCEND]		= "DESCEND";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_TERMINATION]		= "TERMINATION";
+	nav_states_str[vehicle_status_s::NAVIGATION_STATE_OFFBOARD]		= "OFFBOARD";
 
 	/* pthread for slow low prio thread */
 	pthread_t commander_low_prio_thread;
@@ -2684,7 +2684,7 @@ int commander_thread_main(int argc, char *argv[])
 		}
 
 		/* update home position on arming if at least 500 ms from commander start spent to avoid setting home on in-air restart */
-		else if (((!was_armed && armed.armed) || (was_landed && !land_detector.landed)) &&
+		else if ((arming_state_changed&&!was_armed && armed.armed) &&
 			(now > commander_boot_timestamp + INAIR_RESTART_HOLDOFF_INTERVAL)) {
 			commander_set_home_position(home_pub, _home, local_position, global_position, attitude);
 		}
@@ -2726,7 +2726,9 @@ int commander_thread_main(int argc, char *argv[])
 		// TODO handle mode changes by commands
 		if (main_state_changed || nav_state_changed) {
 			status_changed = true;
+			mavlink_log_info(&mavlink_log_pub, "Flight mode: %s", nav_states_str[status.nav_state]);
 			main_state_changed = false;
+
 		}
 
 		/* publish states (armed, control mode, vehicle status) at least with 5 Hz */

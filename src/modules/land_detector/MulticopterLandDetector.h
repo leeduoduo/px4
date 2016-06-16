@@ -139,6 +139,7 @@ private:
 	uint64_t _landTimer;			///< timestamp in microseconds since a possible land was detected
 	uint64_t _freefallTimer;		///< timestamp in microseconds since a possible freefall was detected
 	uint64_t _min_trust_start;		///< timestamp when minimum trust was applied first
+	uint64_t _auto_armed_start;
 };
 
 }

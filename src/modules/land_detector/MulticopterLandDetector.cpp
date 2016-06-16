@@ -164,13 +164,15 @@ bool MulticopterLandDetector::get_landed_state()
 	// Check if thrust output is less than the minimum auto throttle param.
 	bool minimalThrust = (_actuators.control[3] <= sys_min_throttle);
 
-	if (minimalThrust && _min_trust_start == 0) {
+	/*if (minimalThrust && _min_trust_start == 0) {
 		_min_trust_start = now;
 
 	} else if (!minimalThrust) {
 		_min_trust_start = 0;
-	}
+	}*/
 
+	
+	
 	// only trigger flight conditions if we are armed
 	if (!_arming.armed) {
 		_arming_time = 0;
@@ -179,7 +181,24 @@ bool MulticopterLandDetector::get_landed_state()
 	} else if (_arming_time == 0) {
 		_arming_time = now;
 	}
+	//油门杆量到底5s后，并且不是freefall，判断为land
+	bool auto_armed= (_manual.z <= float(0.05));
 
+	if (auto_armed && _auto_armed_start == 0) {
+		_auto_armed_start = now;
+
+	} else if (!auto_armed) {
+		_auto_armed_start = 0;
+	}
+	if ((_auto_armed_start > 0) &&
+		    (hrt_elapsed_time(&_auto_armed_start) > 5* 1000 * 1000)) 
+		{
+			return !get_freefall_state();
+
+		} 
+	else {
+		return false;
+	}
 	// If in manual flight mode never report landed if the user has more than idle throttle
 	// Check if user commands throttle and if so, report not landed based on
 	// the user intent to take off (even if the system might physically still have
@@ -189,7 +208,7 @@ bool MulticopterLandDetector::get_landed_state()
 	}
 
 	// Return status based on armed state and throttle if no position lock is available.
-	if (_vehicleLocalPosition.timestamp == 0 ||
+	/*if (_vehicleLocalPosition.timestamp == 0 ||
 	    hrt_elapsed_time(&_vehicleLocalPosition.timestamp) > 500000 ||
 	    !_vehicleLocalPosition.xy_valid ||
 	    !_vehicleLocalPosition.z_valid) {
@@ -199,13 +218,15 @@ bool MulticopterLandDetector::get_landed_state()
 		// falling consider it to be landed. This should even sustain
 		// quite acrobatic flight.
 		if ((_min_trust_start > 0) &&
-		    (hrt_elapsed_time(&_min_trust_start) > 8 * 1000 * 1000)) {
+		    (hrt_elapsed_time(&_min_trust_start) > 8* 1000 * 1000)) {
 			return !get_freefall_state();
 
 		} else {
 			return false;
 		}
-	}
+	}*/
+
+	
 
 	float armThresholdFactor = 1.0f;
 

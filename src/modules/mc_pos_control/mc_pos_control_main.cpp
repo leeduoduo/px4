@@ -801,7 +801,7 @@ MulticopterPositionControl::control_manual(float dt)
 
 	if (_control_mode.flag_control_altitude_enabled) {
 		/* set vertical velocity setpoint with throttle stick */
-		req_vel_sp(2) = -scale_control(_manual.z - 0.5f, 0.5f, _params.alt_ctl_dz, _params.alt_ctl_dy); // D
+		req_vel_sp(2) = -scale_control(_manual.z - 0.5f, 0.6f, _params.alt_ctl_dz, _params.alt_ctl_dy); // D
 	}
 
 	if (_control_mode.flag_control_position_enabled) {
@@ -1991,6 +1991,7 @@ MulticopterPositionControl::task_main()
 
 			/* control throttle directly if no climb rate controller is active */
 			if (!_control_mode.flag_control_climb_rate_enabled) {
+				/*改变油门曲线，实际上就是让油门杆量在0.5时，飞机可以悬停，这样方便进行定高切换*/
 				float thr_val = throttle_curve(_manual.z, _params.thr_hover);
 				_att_sp.thrust = math::min(thr_val, _manual_thr_max.get());
 

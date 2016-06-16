@@ -233,10 +233,10 @@ MissionBlock::is_mission_item_reached()
 		if (_time_first_inside_orbit == 0) {
 			_time_first_inside_orbit = now;
 
-			// if (_mission_item.time_inside > 0.01f) {
-			// 	mavlink_log_critical(_mavlink_log_pub, "waypoint reached, wait for %.1fs",
-			// 		(double)_mission_item.time_inside);
-			// }
+			if (_mission_item.time_inside > 0.01f) {
+				mavlink_log_critical(_navigator->get_mavlink_log_pub(), "waypoint reached, wait for %.1fs",
+					(double)_mission_item.time_inside);
+			 }
 		}
 
 		/* check if the MAV was long enough inside the waypoint orbit */

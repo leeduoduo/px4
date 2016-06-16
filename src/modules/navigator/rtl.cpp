@@ -112,7 +112,8 @@ RTL::on_activation()
 		/* otherwise go straight to return */
 		} else {
 			/* set altitude setpoint to current altitude */
-			_rtl_state = RTL_STATE_RETURN;
+			//_rtl_state = RTL_STATE_RETURN;
+			_rtl_state = RTL_STATE_TURN;
 			_mission_item.altitude_is_relative = false;
 			_mission_item.altitude = _navigator->get_global_position()->alt;
 		}
@@ -158,7 +159,7 @@ RTL::set_rtl_item()
 		_mission_item.loiter_direction = 1;
 		_mission_item.nav_cmd = NAV_CMD_WAYPOINT;
 		_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
-		_mission_item.time_inside = 0.0f;
+		_mission_item.time_inside = 2.0f;
 		_mission_item.pitch_min = 0.0f;
 		_mission_item.autocontinue = true;
 		_mission_item.origin = ORIGIN_ONBOARD;
@@ -171,13 +172,11 @@ RTL::set_rtl_item()
 		break;
 	}
 
-	case RTL_STATE_RETURN: {
-		_mission_item.lat = _navigator->get_home_position()->lat;
-		_mission_item.lon = _navigator->get_home_position()->lon;
-		// don't change altitude
+	case RTL_STATE_TURN: {
 
-		// use home yaw if close to home
-		/* check if we are pretty close to home already */
+		_mission_item.lat = _navigator->get_global_position()->lat;
+		_mission_item.lon = _navigator->get_global_position()->lon;
+
 		float home_dist = get_distance_to_next_waypoint(_navigator->get_home_position()->lat, _navigator->get_home_position()->lon,
 				_navigator->get_global_position()->lat, _navigator->get_global_position()->lon);
 
@@ -188,21 +187,76 @@ RTL::set_rtl_item()
 			if (pos_sp_triplet->previous.valid) {
 				/* if previous setpoint is valid then use it to calculate heading to home */
 				_mission_item.yaw = get_bearing_to_next_waypoint(
-				        pos_sp_triplet->previous.lat, pos_sp_triplet->previous.lon,
-				        _mission_item.lat, _mission_item.lon);
-
+				_navigator->get_home_position()->lat, _navigator->get_home_position()->lon,
+				 pos_sp_triplet->previous.lat, pos_sp_triplet->previous.lon
+				  );
+				//mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: previous is valid");
+			/*if (pos_sp_triplet->previous.valid) {
+				//if previous setpoint is valid then use it to calculate heading to home 
+				_mission_item.yaw = get_bearing_to_next_waypoint(
+				pos_sp_triplet->previous.lat, pos_sp_triplet->previous.lon,
+				_navigator->get_home_position()->lat, _navigator->get_home_position()->lon
+				 );*/
 			} else {
 				/* else use current position */
+				/*_mission_item.yaw = get_bearing_to_next_waypoint(
+				        _mission_item.lat, _mission_item.lon,
+				        _navigator->get_home_position()->lat, _navigator->get_home_position()->lon);*/
 				_mission_item.yaw = get_bearing_to_next_waypoint(
-				        _navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
-				        _mission_item.lat, _mission_item.lon);
+				        _navigator->get_home_position()->lat, _navigator->get_home_position()->lon
+				        _mission_item.lat, _mission_item.lon
+				        );
+				//mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: previous is invalid");
 			}
 		}
 		_mission_item.loiter_radius = _navigator->get_loiter_radius();
 		_mission_item.loiter_direction = 1;
 		_mission_item.nav_cmd = NAV_CMD_WAYPOINT;
 		_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
-		_mission_item.time_inside = 0.0f;
+		_mission_item.time_inside = 5.0f;
+		_mission_item.pitch_min = 0.0f;
+		_mission_item.autocontinue = true;
+		_mission_item.origin = ORIGIN_ONBOARD;
+
+		/*mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: turn to home at %d m (%d m above home)",
+			(int)(_mission_item.altitude),
+			(int)(_mission_item.altitude - _navigator->get_home_position()->alt));*/
+		break;
+	}
+
+	case RTL_STATE_RETURN: {
+		_mission_item.lat = _navigator->get_home_position()->lat;
+		_mission_item.lon = _navigator->get_home_position()->lon;
+		// don't change altitude
+
+		// use home yaw if close to home
+		/* check if we are pretty close to home already */
+		/*float home_dist = get_distance_to_next_waypoint(_navigator->get_home_position()->lat, _navigator->get_home_position()->lon,
+				_navigator->get_global_position()->lat, _navigator->get_global_position()->lon);
+
+		if (home_dist < _param_rtl_min_dist.get()) {
+			_mission_item.yaw = _navigator->get_home_position()->yaw;
+
+		} else {
+			if (pos_sp_triplet->previous.valid) {
+				// if previous setpoint is valid then use it to calculate heading to home 
+				_mission_item.yaw = get_bearing_to_next_waypoint(
+				        pos_sp_triplet->previous.lat, pos_sp_triplet->previous.lon,
+				        _mission_item.lat, _mission_item.lon);
+
+			} else {
+				// else use current position 
+				_mission_item.yaw = get_bearing_to_next_waypoint(
+				        _navigator->get_global_position()->lat, _navigator->get_global_position()->lon,
+				        _mission_item.lat, _mission_item.lon);
+			}
+		}*/
+		_mission_item.loiter_radius = _navigator->get_loiter_radius();
+		_mission_item.loiter_direction = 1;
+		_mission_item.nav_cmd = NAV_CMD_WAYPOINT;
+		_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
+		_mission_item.yaw = NAN;
+		_mission_item.time_inside = 2.0f;
 		_mission_item.pitch_min = 0.0f;
 		_mission_item.autocontinue = true;
 		_mission_item.origin = ORIGIN_ONBOARD;
@@ -251,7 +305,7 @@ RTL::set_rtl_item()
 		_mission_item.loiter_direction = 1;
 		_mission_item.nav_cmd = NAV_CMD_WAYPOINT;
 		_mission_item.acceptance_radius = _navigator->get_acceptance_radius();
-		_mission_item.time_inside = 0.0f;
+		_mission_item.time_inside = 2.0f;
 		_mission_item.pitch_min = 0.0f;
 		_mission_item.autocontinue = false;
 		_mission_item.origin = ORIGIN_ONBOARD;
@@ -330,6 +384,9 @@ RTL::advance_rtl()
 {
 	switch (_rtl_state) {
 	case RTL_STATE_CLIMB:
+		_rtl_state = RTL_STATE_TURN;
+		break;
+	case RTL_STATE_TURN:
 		_rtl_state = RTL_STATE_RETURN;
 		break;
 
