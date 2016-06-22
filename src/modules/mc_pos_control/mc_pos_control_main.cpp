@@ -959,7 +959,7 @@ MulticopterPositionControl::cross_sphere_line(const math::Vector<3> &sphere_c, f
 	float cd_len = (sphere_c - d).length();
 
 	/* we have triangle CDX with known CD and CX = R, find DX */
-	if (sphere_r > cd_len) {
+	if ( cd_len < sphere_r ) {
 		/* have two roots, select one in A->B direction from D */
 		float dx_len = sqrtf(sphere_r * sphere_r - cd_len * cd_len);
 		res = d + ab_norm * dx_len;
@@ -1087,10 +1087,13 @@ void MulticopterPositionControl::control_auto(float dt)
 							math::Vector<3> curr_next_s = next_sp_s - curr_sp_s;
 							math::Vector<3> prev_curr_s_norm = prev_curr_s.normalized();
 
-							/* cos(a) * curr_next, a = angle between current and next trajectory segments */
+							/* cos(a) * curr_next, a = angle between current and next trajectory segments
+							prev_curr_s_norm * curr_next_s = |prev_curr_s_norm|*|curr_next_s|*cos(a)
+											 = |curr_next_s|*cos(a)*/
 							float cos_a_curr_next = prev_curr_s_norm * curr_next_s;
 
-							/* cos(b), b = angle pos - curr_sp - prev_sp */
+							/* cos(b), b = angle pos - curr_sp - prev_sp 
+							b表示当前位置到current_setpoint的向量与previous_setpoint到current_setpoint向量之间的夹角*/
 							float cos_b = -curr_pos_s * prev_curr_s_norm / curr_pos_s_len;
 
 							if (cos_a_curr_next > 0.0f && cos_b > 0.0f) {
@@ -1338,7 +1341,8 @@ MulticopterPositionControl::task_main()
 			_run_pos_control = true;
 			_run_alt_control = true;
 
-			/* select control source */
+			/* select control source 
+			根据不同的control source 来计算出pos_sp*/
 			if (_control_mode.flag_control_manual_enabled) {
 				/* manual control */
 				control_manual(dt);
@@ -1501,13 +1505,15 @@ MulticopterPositionControl::task_main()
 					_vel_sp(2) = 0.0f;
 				}
 
-				/* use constant descend rate when landing, ignore altitude setpoint */
+				/* use constant descend rate when landing, ignore altitude setpoint 
+				在降落的过程中，位置开环，只有速度闭环，期望速度为_params.land_speed*/
 				if (!_control_mode.flag_control_manual_enabled && _pos_sp_triplet.current.valid
 						&& _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
 					_vel_sp(2) = _params.land_speed;
 				}
 
-				/* special thrust setpoint generation for takeoff from ground */
+				/* special thrust setpoint generation for takeoff from ground
+				takeoff的时候，thrust setpoint 设定 */
 				if (!_control_mode.flag_control_manual_enabled && _pos_sp_triplet.current.valid
 						&& _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF
 						&& _control_mode.flag_armed) {

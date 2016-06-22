@@ -89,8 +89,10 @@ RTL::on_activation()
 {
 	/* reset starting point so we override what the triplet contained from the previous navigation state */
 	_rtl_start_lock = false;
+	/*将当前位置赋值给_mission_item*/
 	set_current_position_item(&_mission_item);
 	struct position_setpoint_triplet_s *pos_sp_triplet = _navigator->get_position_setpoint_triplet();
+	/*将_mission_item赋值给pos_sp_triplet->current，此时，current.valid == true*/
 	mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
 
 	/* check if we are pretty close to home already */
@@ -141,6 +143,7 @@ RTL::set_rtl_item()
 	updateParams();
 
 	if (!_rtl_start_lock) {
+		/*将current赋值给precious*/
 		set_previous_pos_setpoint();
 	}
 
@@ -203,9 +206,8 @@ RTL::set_rtl_item()
 				        _mission_item.lat, _mission_item.lon,
 				        _navigator->get_home_position()->lat, _navigator->get_home_position()->lon);*/
 				_mission_item.yaw = get_bearing_to_next_waypoint(
-				        _navigator->get_home_position()->lat, _navigator->get_home_position()->lon
-				        _mission_item.lat, _mission_item.lon
-				        );
+				        _navigator->get_home_position()->lat, _navigator->get_home_position()->lon,
+				        _mission_item.lat, _mission_item.lon );
 				//mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: previous is invalid");
 			}
 		}
@@ -218,9 +220,9 @@ RTL::set_rtl_item()
 		_mission_item.autocontinue = true;
 		_mission_item.origin = ORIGIN_ONBOARD;
 
-		/*mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: turn to home at %d m (%d m above home)",
+		mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: turn to home at %d m (%d m above home)",
 			(int)(_mission_item.altitude),
-			(int)(_mission_item.altitude - _navigator->get_home_position()->alt));*/
+			(int)(_mission_item.altitude - _navigator->get_home_position()->alt));
 		break;
 	}
 
@@ -281,6 +283,8 @@ RTL::set_rtl_item()
 		_mission_item.lat = _navigator->get_home_position()->lat;
 		_mission_item.lon = _navigator->get_home_position()->lon;
 		_mission_item.altitude_is_relative = false;
+		/*DESCEND STATE ,高度与CLIMB STATE 下的高度不一致，CLIMB下是 RTL_RETURN_ALT，
+		而DESCEND 下是RTL_DESCEND_ALT*/
 		_mission_item.altitude = _navigator->get_home_position()->alt + _param_descend_alt.get();
 
 		// check if we are already lower - then we will just stay there
@@ -310,7 +314,8 @@ RTL::set_rtl_item()
 		_mission_item.autocontinue = false;
 		_mission_item.origin = ORIGIN_ONBOARD;
 
-		/* disable previous setpoint to prevent drift */
+		/* disable previous setpoint to prevent drift 
+		将pervious_setpoint disable，防止漂移*/
 		pos_sp_triplet->previous.valid = false;
 
 		mavlink_log_info(_navigator->get_mavlink_log_pub(), "RTL: descend to %d m (%d m above home)",
@@ -372,7 +377,8 @@ RTL::set_rtl_item()
 		issue_command(&_mission_item);
 	}
 
-	/* convert mission item to current position setpoint and make it valid */
+	/* convert mission item to current position setpoint and make it valid 
+	将_mission_item赋值给current*/
 	mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
 	pos_sp_triplet->next.valid = false;
 
