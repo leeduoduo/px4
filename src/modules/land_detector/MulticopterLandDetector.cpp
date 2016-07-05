@@ -90,6 +90,7 @@ void MulticopterLandDetector::initialize()
 	_ctrl_state_sub = orb_subscribe(ORB_ID(control_state));
 	_vehicle_control_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 
+
 	// download parameters
 	updateParameterCache(true);
 }
@@ -181,9 +182,10 @@ bool MulticopterLandDetector::get_landed_state()
 	} else if (_arming_time == 0) {
 		_arming_time = now;
 	}
-	//油门杆量到底5s后，并且不是freefall，判断为land
+	//油门杆量到底2s后，并且不是freefall，判断为land
 	bool auto_armed= (_manual.z <= float(0.05));
 
+	
 	if (auto_armed && _auto_armed_start == 0) {
 		_auto_armed_start = now;
 
@@ -191,14 +193,16 @@ bool MulticopterLandDetector::get_landed_state()
 		_auto_armed_start = 0;
 	}
 	if ((_auto_armed_start > 0) &&
-		    (hrt_elapsed_time(&_auto_armed_start) > 5* 1000 * 1000)) 
-		{
-			return !get_freefall_state();
+		    (hrt_elapsed_time(&_auto_armed_start) > 2* 1000 * 1000)) 
+	{
+		return !get_freefall_state();
 
-		} 
-	else {
-		return false;
-	}
+	} 
+		
+
+	
+
+		
 	// If in manual flight mode never report landed if the user has more than idle throttle
 	// Check if user commands throttle and if so, report not landed based on
 	// the user intent to take off (even if the system might physically still have
@@ -253,8 +257,8 @@ bool MulticopterLandDetector::get_landed_state()
 			(fabsf(_vehicleAttitude.yawspeed) > maxRotationScaled);
 
 
-	if (verticalMovement || rotating || !minimalThrust || horizontalMovement) {
-		// Sensed movement or thottle high, so reset the land detector.
+	if (verticalMovement ||rotating || !minimalThrust || horizontalMovement) {
+		// Sensed movement or thottle high, so reset  the land detector.
 		_landTimer = now;
 		return false;
 	}

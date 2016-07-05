@@ -128,6 +128,7 @@ private:
 	int _ctrl_state_sub;
 	int _vehicle_control_mode_sub;
 
+
 	struct vehicle_local_position_s		_vehicleLocalPosition;
 	struct actuator_controls_s		_actuators;
 	struct actuator_armed_s			_arming;

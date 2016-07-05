@@ -1709,7 +1709,7 @@ MulticopterPositionControl::task_main()
 
 						/* assume ground, cut thrust */
 						if (_in_landing
-								&& _vel_z_lp < 0.1f) {
+								&& _vel_z_lp < 0.05f) {
 							thr_max = 0.0f;
 							_in_landing = false;
 							_lnd_reached_ground = true;
