@@ -322,6 +322,13 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	bool use_lidar = false;
 	bool use_lidar_prev = false;
 
+	float corr_sonar = 0.0f;
+	float sonar_offset = 0.0f;
+	int sonar_offset_count = 0;
+	bool sonar_first = true;
+	bool use_sonar = false;
+	bool use_sonar_prev = false;
+
 	float corr_flow[] = { 0.0f, 0.0f };	// N E
 	float w_flow = 0.0f;
 
@@ -343,6 +350,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	bool flow_accurate = false;		// flow should be accurate (this flag not updated if flow_valid == false)
 	bool vision_valid = false;		// vision is valid
 	bool mocap_valid = false;		// mocap is valid
+	bool sonar_valid = false;
 
 	/* declare and safely initialize all structs */
 	struct actuator_controls_s actuator;
@@ -592,17 +600,59 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			/* optical flow */
 			orb_check(optical_flow_sub, &updated);
 
-			if (updated && lidar_valid) {
+			if (updated ) {
 				orb_copy(ORB_ID(optical_flow), optical_flow_sub, &flow);
 
 				flow_time = t;
 				float flow_q = flow.quality / 255.0f;
-				float dist_bottom = lidar.current_distance;
+				//float dist_bottom = lidar.current_distance;
+				float dist_bottom = flow.ground_distance_m;
+				float sonar_distance = dist_bottom;
+
+				if (sonar_distance > 0.0f && PX4_R(att.R, 2, 2) > 0.7f)
+				{
+					if (!use_sonar_prev && use_sonar) {
+						sonar_first = true;
+					}
+
+					use_sonar_prev = use_sonar;
+
+					//sonar_time = t;
+					dist_ground = sonar_distance * PX4_R(att.R, 2, 2); //vertical distance
+
+					if (sonar_first) {
+						sonar_first = false;
+						sonar_offset = dist_ground + z_est[0];
+						mavlink_log_info(&mavlink_log_pub, "[inav] SONAR: new ground offset");
+						warnx("[inav] SONAR: new ground offset");
+					}
+
+					corr_sonar = sonar_offset - dist_ground - z_est[0];
+
+					if (fabsf(corr_sonar) > params.lidar_err) { //check for spike
+						corr_sonar = 0;
+						sonar_valid = false;
+						sonar_offset_count++;
+
+						if (sonar_offset_count > 3) { //if consecutive bigger/smaller measurements -> new ground offset -> reinit
+							sonar_first = true;
+							sonar_offset_count = 0;
+						}
+
+					} else {
+						corr_sonar = sonar_offset - dist_ground - z_est[0];
+						sonar_valid = true;
+						sonar_offset_count = 0;
+						//sonar_valid_time = t;
+					}
+				} else {
+					sonar_valid = false;	
+				}
 
 				if (dist_bottom > flow_min_dist && flow_q > params.flow_q_min && PX4_R(att.R, 2, 2) > 0.7f) {
 					/* distance to surface */
-					//float flow_dist = dist_bottom / PX4_R(att.R, 2, 2); //use this if using sonar
-					float flow_dist = dist_bottom; //use this if using lidar
+					float flow_dist = dist_bottom / PX4_R(att.R, 2, 2); //use this if using sonar
+					//float flow_dist = dist_bottom; //use this if using lidar
 
 					/* check if flow if too large for accurate measurements */
 					/* calculate estimated velocity in body frame */
@@ -1011,6 +1061,8 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		/* use LIDAR if it's valid and lidar altitude estimation is enabled */
 		use_lidar = lidar_valid && params.enable_lidar_alt_est;
 
+		use_sonar = sonar_valid;
+
 		bool can_estimate_xy = (eph < max_eph_epv) || use_gps_xy || use_flow || use_vision_xy || use_mocap;
 
 		bool dist_bottom_valid = (t < lidar_valid_time + lidar_valid_timeout);
@@ -1119,7 +1171,9 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 		if (use_lidar) {
 			accel_bias_corr[2] -= corr_lidar * params.w_z_lidar * params.w_z_lidar;
-		} else {
+		}else if (use_sonar){
+			accel_bias_corr[2] -= corr_sonar * params.w_z_lidar * params.w_z_lidar;
+		}else {
 			accel_bias_corr[2] -= corr_baro * params.w_z_baro * params.w_z_baro;
 		}
 
@@ -1150,7 +1204,9 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		if (use_lidar) {
 			inertial_filter_correct(corr_lidar, dt, z_est, 0, params.w_z_lidar);
 
-		} else {
+		} else if (use_sonar){
+			inertial_filter_correct(corr_sonar, dt, z_est, 0, params.w_z_lidar);	
+		}else {
 			inertial_filter_correct(corr_baro, dt, z_est, 0, params.w_z_baro);
 		}
 
