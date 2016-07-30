@@ -326,8 +326,10 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	float sonar_offset = 0.0f;
 	int sonar_offset_count = 0;
 	bool sonar_first = true;
+	bool sonar_first_prev = true;
 	bool use_sonar = false;
 	bool use_sonar_prev = false;
+	bool sonar_ground_change = false;
 
 	float corr_flow[] = { 0.0f, 0.0f };	// N E
 	float w_flow = 0.0f;
@@ -611,20 +613,31 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 				if (sonar_distance > 0.0f && PX4_R(att.R, 2, 2) > 0.7f)
 				{
+					sonar_first_prev = sonar_first;
+
 					if (!use_sonar_prev && use_sonar) {
 						sonar_first = true;
 					}
-
 					use_sonar_prev = use_sonar;
 
 					//sonar_time = t;
 					dist_ground = sonar_distance * PX4_R(att.R, 2, 2); //vertical distance
 
 					if (sonar_first) {
-						sonar_first = false;
-						sonar_offset = dist_ground + z_est[0];
-						mavlink_log_info(&mavlink_log_pub, "[inav] SONAR: new ground offset");
-						warnx("[inav] SONAR: new ground offset");
+
+						if(sonar_first_prev){
+							sonar_first = false;
+							sonar_offset = dist_ground + z_est[0];
+							if(sonar_ground_change){
+								mavlink_log_info(&mavlink_log_pub, "[inav] SONAR: sonar ground change");
+							}
+						}else{
+							sonar_first = false;
+							sonar_offset = dist_ground + z_est[0];
+							mavlink_log_info(&mavlink_log_pub, "[inav] SONAR: new ground offset");
+							warnx("[inav] SONAR: new ground offset");	
+						}
+						
 					}
 
 					corr_sonar = sonar_offset - dist_ground - z_est[0];
@@ -637,17 +650,21 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 						if (sonar_offset_count > 3) { //if consecutive bigger/smaller measurements -> new ground offset -> reinit
 							sonar_first = true;
 							sonar_offset_count = 0;
+							sonar_ground_change = true;
 						}
 
 					} else {
 						corr_sonar = sonar_offset - dist_ground - z_est[0];
 						sonar_valid = true;
 						sonar_offset_count = 0;
+						sonar_ground_change = false;
 						//sonar_valid_time = t;
 					}
 				} else {
 					sonar_valid = false;	
 				}
+
+
 
 				if (dist_bottom > flow_min_dist && flow_q > params.flow_q_min && PX4_R(att.R, 2, 2) > 0.7f) {
 					/* distance to surface */
